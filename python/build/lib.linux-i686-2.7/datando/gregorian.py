@@ -5,31 +5,31 @@
 
 from datando.kernel import *
 
-def julian_is_leap_year(year):
+def gregorian_is_leap_year(year):
     if year < 0:
         y = -year - 1
     else:
         y = year
-    return y % 4 == 0
+    return y % 4 == 0 and (y % 100 != 0 or y % 400 == 0)
 
-def julian_days_of_year(year):
-    if julian_is_leap_year(year):
+def gregorian_days_of_year(year):
+    if gregorian_is_leap_year(year):
         return 366
     else:
         return 365
 
-def julian_days_per_month(year, month):
+def gregorian_days_per_month(year, month):
     if month in [1, 3, 5, 7, 8, 10, 12]:
         return 31
     elif month == 2:
-        if julian_is_leap_year(year):
+        if gregorian_is_leap_year(year):
             return 29
         else:
             return 28
     elif month in [4, 6, 9, 11]:
         return 30
 
-class JulianDateTime(CalendarBase):
+class GregorianDateTime(CalendarBase):
 
     __SECS_PER_400_YEARS = 12622780800
     __SECS_PER_100_YEARS = 3155673600
@@ -46,7 +46,6 @@ class JulianDateTime(CalendarBase):
     __SECS_PER_HOUR = 3600
     __SECS_PER_MINUTE = 60
     __DAYS_FROM_1_JAN = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
-    __DIFFERENCE_FROM_GREGORIAN = 172800
 
     def __init__(self, year = 1, month = 1, day = 1, hour = 0, minute = 0, second = 0, microsecond = 0):
         self.year = year
@@ -58,7 +57,10 @@ class JulianDateTime(CalendarBase):
         self.microsecond = microsecond
 
     def is_leap_year(self):
-        return julian_is_leap_year(self.year)
+        return gregorian_is_leap_year(self.year)
+
+    def days_per_month(self):
+        return gregorian_days_per_month(self.year, self.month)
 
     def days_from_1_jan(self):
         days = self.__DAYS_FROM_1_JAN[self.month - 1] + self.day
@@ -67,21 +69,18 @@ class JulianDateTime(CalendarBase):
         return days
 
     def days_to_31_dec(self):
-        if julian_is_leap_year(self.year):
+        if gregorian_is_leap_year(self.year):
             return self.__DAYS_PER_LEAP_YEAR - self.days_from_1_jan()
         else:
             return self.__DAYS_PER_YEAR - self.days_from_1_jan()
-    def __unicode__(self):
-        pass
 
     def __str__(self):
         if self.year > 0:
             sign = "+"
         else:
             sign = "-"
-        return "Julian \\ {0}-{1:02d}-{2:02d} T {3:02d}:{4:02d}:{5:02d}.{6:06d}".format(
+        return "Gregorian \\ {0}-{1:02d}-{2:02d} T {3:02d}:{4:02d}:{5:02d}.{6:06d}".format(
             self.year, self.month, self.day, self.hour, self.minute, self.second, self.microsecond)
-
 
     def to_LPDateTime(self):
         if self.year > 0:
@@ -103,43 +102,55 @@ class JulianDateTime(CalendarBase):
         if self.year > 1: # Not equal to, but greater than!!
             prev_year = self.year - 1
             # leap years are 4, 8, 16, etc.
-            leap_years = prev_year / 4
+            leap_years = prev_year / 4 - (prev_year / 100 - prev_year / 400)
             non_leap_years = prev_year - leap_years
             secs += non_leap_years * self.__SECS_PER_YEAR + leap_years * self.__SECS_PER_LEAP_YEAR
         elif self.year < -1:
             # To find negative leap years (excluding the current year):
-            # change sign, sum 2 and then divide by 4.
+            # change sign, sum 2 and then divide by 4, as for the Julian Calendar;
+            # then subtract centuries (-101, -201, etc., but not -1, -401, -801, etc.)
             positive_year = -self.year
             prev_2 = positive_year - 2
-            leap_years = (prev_2) / 4 + 1
+            # Subtract centuries (1, 101, 201, etc., but add -1, -401, -801, etc.)
+            leap_years = (prev_2) / 4 - (prev_2 / 100 - prev_2 / 400) + 1
             non_leap_years = positive_year - 1 - leap_years
             secs += non_leap_years * self.__SECS_PER_YEAR + (leap_years) * self.__SECS_PER_LEAP_YEAR
         positive = self.year > 0
-        # Add 2 days: Jan 1, 1 A.D. of the gregorian calendar corresponds to Jan 3, 1.A.D. in the Julian one.
-        lpdt = LPDateTime(positive, secs, self.microsecond)
-        return lpdt - LPDateTime(True, self.__DIFFERENCE_FROM_GREGORIAN, 0)
+        return LPDateTime(positive, secs, self.microsecond)
 
     @classmethod
     def from_LPDateTime(cls, lp_datetime):
-        lp_dt2 = lp_datetime + LPDateTime(True, cls.__DIFFERENCE_FROM_GREGORIAN, 0)
-        days = lp_dt2.second / cls.__SECS_PER_DAY
-        lt_day = lp_dt2.second % cls.__SECS_PER_DAY
-        if lp_dt2.positive:
+        days = lp_datetime.second / cls.__SECS_PER_DAY
+        lt_day = lp_datetime.second % cls.__SECS_PER_DAY
+        if lp_datetime.positive:
             year = 1
-            hm_4 = days / cls.__DAYS_PER_4_YEARS
-            lt_4 = days % cls.__DAYS_PER_4_YEARS
-            year += hm_4 * 4
-            hm_years = lt_4 / 365
-            # Need to add 1 because the counting of days starts from 1.
-            lt_year = lt_4 % 365 + 1
-            if hm_years == 4:
-                year += 3
-                lt_year += 365
+            hm_400 = days / cls.__DAYS_PER_400_YEARS
+            lt_400 = days % cls.__DAYS_PER_400_YEARS
+            year += hm_400 * 400
+            hm_100 = lt_400 / cls.__DAYS_PER_100_YEARS
+            lt_100 = lt_400 % cls.__DAYS_PER_100_YEARS
+            if hm_100 == 4:
+                year += 399
+                lt_100 += 365
             else:
-                year += hm_years
+                year += hm_100 * 100
+            hm_4 = lt_100 / cls.__DAYS_PER_4_YEARS
+            lt_4 = lt_100 % cls.__DAYS_PER_4_YEARS
+            year += hm_4 * 4
+            if not hm_100 == 4:
+                hm_years = lt_4 / 365
+                # Need to add 1 because the counting of days starts from 1.
+                lt_year = lt_4 % 365 + 1
+                if hm_years == 4:
+                    year += 3
+                    lt_year += 365
+                else:
+                    year += hm_years
+            else:
+                lt_year = 366
             past_months_days = 0
             for m in range(1, 13):
-                curr_month_days = julian_days_per_month(year, m)
+                curr_month_days = gregorian_days_per_month(year, m)
                 day_of_month = lt_year - past_months_days
                 if day_of_month <= curr_month_days:
                     day = day_of_month
@@ -150,35 +161,43 @@ class JulianDateTime(CalendarBase):
             lt_hour = lt_day % cls.__SECS_PER_HOUR
             minute = lt_hour / cls.__SECS_PER_MINUTE
             second = lt_hour % cls.__SECS_PER_MINUTE
-            microsecond = lp_dt2.microsecond
-            return JulianDateTime(year, month, day, hour, minute, second, microsecond)
+            microsecond = lp_datetime.microsecond
+            return GregorianDateTime(year, month, day, hour, minute, second, microsecond)
         else:
-            if lp_dt2.second == 0:
-                if lp_dt2.microsecond == 0:
-                    return JulianDateTime(1, 1, 1, 0, 0, 0, 0)
+            if lp_datetime.second == 0:
+                if lp_datetime.microsecond == 0:
+                    return GregorianDateTime(1, 1, 1, 0, 0, 0, 0)
                 else:
-                    return JulianDateTime(-1, 12, 31, 23, 59, 59, 1000000 - lp_dt2.microsecond)
-            hm_4 = days / cls.__DAYS_PER_4_YEARS
-            lt_4 = days % cls.__DAYS_PER_4_YEARS
-            year = -(hm_4 * 4)
-            if (lt_4 == 0 and hm_4 > 0):
-                lt_4 == julian_days_of_year(year)
+                    return GregorianDateTime(-1, 12, 31, 23, 59, 59, 1000000 - lp_datetime.microsecond)
+            hm_400 = days / cls.__DAYS_PER_400_YEARS
+            lt_400 = days % cls.__DAYS_PER_400_YEARS
+            hm_100 = lt_400 / cls.__DAYS_PER_100_YEARS
+            lt_100 = lt_400 % cls.__DAYS_PER_100_YEARS
+            hm_4 = lt_100 / cls.__DAYS_PER_4_YEARS
+            lt_4 = lt_100 % cls.__DAYS_PER_4_YEARS
+            year = -(hm_400 * 400 + hm_100 * 100 + hm_4 * 4)
+            if (lt_4 == 0 and hm_4 > 0) or (lt_100 == 0 and hm_100 > 0) or (lt_100 == 1 and hm_100 > 0 and lt_day == 0) or (lt_400 == 0 and hm_400 > 0):
+                print "Qua!!"
+                lt_4 == gregorian_days_of_year(year)
                 day_from_jan_1 = 1
             else:
                 year -= 1
-                dd_of_year = julian_days_of_year(year)
+                dd_of_year = gregorian_days_of_year(year)
                 while lt_4 > dd_of_year:
                     lt_4 -= dd_of_year
                     year -= 1
-                    dd_of_year = julian_days_of_year(year - 1)
+                    dd_of_year = gregorian_days_of_year(year - 1)
+                print "hm_100", hm_100
+                print "lt_100", lt_100
+                print "lt_4:", lt_4
                 if lt_day == 0:
                     day_from_jan_1 = gregorian_days_of_year(year) - lt_4 + 1
                 else:
                     day_from_jan_1 = gregorian_days_of_year(year) - lt_4
-                day_from_jan_1 = julian_days_of_year(year) - lt_4 + 1
+                print "day from jan 1:", day_from_jan_1
             past_months_days = 0
             for m in range(1, 13):
-                curr_month_days = julian_days_per_month(year, m)
+                curr_month_days = gregorian_days_per_month(year, m)
                 day_of_month = day_from_jan_1 - past_months_days
                 if day_of_month <= curr_month_days:
                     day = day_of_month
@@ -193,7 +212,7 @@ class JulianDateTime(CalendarBase):
             lt_hour = rev_lt_day % cls.__SECS_PER_HOUR
             minute = lt_hour / cls.__SECS_PER_MINUTE
             second = lt_hour % cls.__SECS_PER_MINUTE
-            microsecond = lp_dt2.microsecond
+            microsecond = lp_datetime.microsecond
             if microsecond > 0:
-                microsecond = 1000000 - lp_dt2.microsecond
-            return JulianDateTime(year, month, day, hour, minute, second, microsecond)
+                microsecond = 1000000 - lp_datetime.microsecond
+            return GregorianDateTime(year, month, day, hour, minute, second, microsecond)

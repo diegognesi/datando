@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: datando
+Version: 0.1
+Summary: This library allows to convert between calendars and to manage datetime variables and intervals for a period of +/-5 billions of years and a precision of 1 microsecond.
+Home-page: http://www.diegognesi.it
+Author: Diego Gnesi Bartolani
+Author-email: diego.gnesi@gmail.com
+License: GPLv3
+Description: UNKNOWN
+Platform: UNKNOWN

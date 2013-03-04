@@ -5,7 +5,7 @@
 
 from datando.kernel import *
 
-class JDDateTime(CalendarBase):
+class JDDateTime:
     __SECS_PER_DAY = 86400
     __MICROSECS_PER_DAY = 86400000000.0
     __JD_DIFFERENCE = 148731163200

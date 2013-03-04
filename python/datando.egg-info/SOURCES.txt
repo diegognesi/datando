@@ -1,0 +1,10 @@
+setup.py
+datando/__init__.py
+datando/gregorian.py
+datando/jd.py
+datando/julian.py
+datando/kernel.py
+datando.egg-info/PKG-INFO
+datando.egg-info/SOURCES.txt
+datando.egg-info/dependency_links.txt
+datando.egg-info/top_level.txt

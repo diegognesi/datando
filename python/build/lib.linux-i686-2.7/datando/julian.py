@@ -3,7 +3,7 @@
 # Code written by Dr. Diego Gnesi Bartolani, Archaeologist (diego.gnesi@gmail.com).
 # http://www.diegognesi.it
 
-from datando.kernel import *
+from datando.kernel import LPDateTime
 
 def julian_is_leap_year(year):
     if year < 0:
@@ -29,7 +29,7 @@ def julian_days_per_month(year, month):
     elif month in [4, 6, 9, 11]:
         return 30
 
-class JulianDateTime(CalendarBase):
+class JulianDateTime:
 
     __SECS_PER_400_YEARS = 12622780800
     __SECS_PER_100_YEARS = 3155673600
