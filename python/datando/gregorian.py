@@ -29,7 +29,7 @@ def gregorian_days_per_month(year, month):
     elif month in [4, 6, 9, 11]:
         return 30
 
-class GregorianDateTime:
+class GregorianDateTime(CalendarBase):
 
     __SECS_PER_400_YEARS = 12622780800
     __SECS_PER_100_YEARS = 3155673600
